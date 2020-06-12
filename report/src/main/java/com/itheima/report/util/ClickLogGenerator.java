@@ -141,7 +141,7 @@ public class ClickLogGenerator {
                 e.printStackTrace();
             }
 
-            send("http://localhost:8080/receive", jonstr);
+            send("http://localhost:8888/receive", jonstr);
         }
     }
 }

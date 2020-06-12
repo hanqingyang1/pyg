@@ -23,15 +23,15 @@
         <!--kafka 客户端-->
         <dependency>
             <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka_${scala.version}</artifactId>
-            <version>0.10.1.0</version>
+            <artifactId>kafka_2.9.2</artifactId>
+            <version>0.8.1</version>
         </dependency>
 
 
         <!--flink对接kafka：导入flink使用kafka的依赖-->
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-kafka-0.10_${scala.version}</artifactId>
+            <artifactId>flink-connector-kafka-0.9_2.11</artifactId>
             <version>${flink.version}</version>
         </dependency>
 
