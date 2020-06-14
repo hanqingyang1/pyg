@@ -17,255 +17,183 @@ import org.apache.hadoop.hbase.util.Bytes
   */
 object HBaseUtil {
 
-  // HBase的配置类, 不需要指定配置文件名,文件名要求是hbase-site.xml
-  val conf: Configuration = HBaseConfiguration.create()
+  //创建Hbase配置,默认获取类路径下的hbase-site.xml配置文件
+  val conf:Configuration = HBaseConfiguration.create()
 
-  // HBase的连接
-  val conn: Connection = ConnectionFactory.createConnection(conf)
+  //创建连接
+  val connection:Connection = ConnectionFactory.createConnection(conf)
 
-  // HBase的操作API
-  val admin: Admin = conn.getAdmin
+  //获取Hbase操作类
+  private val admin: Admin = connection.getAdmin
 
 
   /**
-    * 返回table,如果不存在,则创建表
-    *
-    * @param tableNameStr
-    * @param columnFamilyName
-    * @return
+    * 获取表
+    * @param tableNameStr 表名
+    * @param columnFamilyName 列族名
+     * @return
     */
-  def getTable(tableNameStr: String, columnFamilyName: String): Table = {
-
-    // 获取TableName
-    val tableName: TableName = TableName.valueOf(tableNameStr)
-
-    // 如果表不存在,则创建表
-    if (!admin.tableExists(tableName)) {
-
-      // 构建出 表的描述的建造者
-      val descBuilder: TableDescriptorBuilder = TableDescriptorBuilder.newBuilder(tableName)
-
-      val familyDescriptor: ColumnFamilyDescriptor = ColumnFamilyDescriptorBuilder.newBuilder(columnFamilyName.getBytes).build()
-      // 给表去添加列族
-      descBuilder.setColumnFamily(familyDescriptor)
-
-      // 创建表
-      admin.createTable(descBuilder.build())
+  def getTable(tableNameStr:String,columnFamilyName:String):Table ={
+    val tableName = TableName.valueOf(tableNameStr)
+    //判断表名是否存在，不存在创建表
+    if(!admin.tableExists(tableName)){
+      //构建表描述
+      val desc:TableDescriptorBuilder = TableDescriptorBuilder.newBuilder(tableName)
+      //构建列族描述
+      val columnFamilyDescriptor:ColumnFamilyDescriptor =
+        ColumnFamilyDescriptorBuilder.newBuilder(columnFamilyName.getBytes).build()
+      desc.setColumnFamily(columnFamilyDescriptor)
+      //创建表
+      admin.createTable(desc.build())
     }
-
-    conn.getTable(tableName)
+    connection.getTable(tableName)
   }
 
   /**
-    * 存储单列数据
-    *
-    * @param tableNameStr     表名
-    * @param rowkey           rowkey
-    * @param columnFamilyName 列族名
-    * @param columnName       列名
-    * @param columnValue      列值
+    * 根据rowkey,列名查询数据
+    * @param tableName 表名
+    * @param rowkey rowkey
+    * @param columnFamily 列蔟名
+    * @param column 列名
+    * @return 数据
     */
-  def putData(tableNameStr: String, rowkey: String, columnFamilyName: String, columnName: String, columnValue: String) = {
-
-    // 获取表
-    val table: Table = getTable(tableNameStr, columnFamilyName)
-
+  def putData(tableNameStr:String,rowKey:String,columnFamilyName:String,columnName:String,columnValue:String): Unit ={
+    //获取表
+    val table = getTable(tableNameStr,columnFamilyName)
+    //添加数据
     try {
-      // Put
-      val put: Put = new Put(rowkey.getBytes)
-      put.addColumn(columnFamilyName.getBytes, columnName.getBytes, columnValue.getBytes)
-
-      // 保存数据
+      val put  = new Put(rowKey.getBytes())
+      put.addColumn(columnFamilyName.getBytes(),columnName.getBytes(),columnValue.getBytes())
+      //保存数据
       table.put(put)
-    } catch {
-      case ex: Exception => {
-        ex.printStackTrace()
-      }
-    } finally {
-      table.close()
-    }
-  }
-
-  /**
-    * 通过单列名获取列值
-    *
-    * @param tableNameStr     表名
-    * @param rowkey           rowkey
-    * @param columnFamilyName 列族名
-    * @param columnName       列名
-    * @return 列值
-    */
-  def getData(tableNameStr: String, rowkey: String, columnFamilyName: String, columnName: String): String = {
-
-    // 1.获取Table对象
-    val table = getTable(tableNameStr, columnFamilyName)
-
-    try {
-
-      // 2. 构建Get对象
-      val get = new Get(rowkey.getBytes)
-
-      // 3. 进行查询
-      val result: Result = table.get(get)
-
-      // 4. 判断查询结果是否为空,并且包含我们要查询的列
-
-      if (result != null && result.containsColumn(columnFamilyName.getBytes, columnName.getBytes)) {
-        val bytes: Array[Byte] = result.getValue(columnFamilyName.getBytes(), columnName.getBytes)
-
-        Bytes.toString(bytes)
-      } else {
-        ""
-      }
-
-    } catch {
-      case ex: Exception => {
-        ex.printStackTrace()
-        ""
-      }
-    } finally {
-      // 5. 关闭表
-      table.close()
-    }
-
-  }
-
-  /**
-    * 存储多列数据
-    *
-    * @param tableNameStr     表名
-    * @param rowkey           rowkey
-    * @param columnFamilyName 列族名
-    * @param map              多个列名和列值集合
-    */
-  def putMapData(tableNameStr: String, rowkey: String, columnFamilyName: String, map: Map[String, Any]) = {
-
-    // 1. 获取Table
-    val table = getTable(tableNameStr, columnFamilyName)
-
-    try {
-
-      // 2. 创建Put
-      val put = new Put(rowkey.getBytes)
-
-      // 3. 在Put中添加多个列名和列值
-      for ((colName, colValue) <- map) {
-        put.addColumn(columnFamilyName.getBytes, colName.getBytes, colValue.toString.getBytes)
-      }
-
-      // 4. 保存Put
-      table.put(put)
-
-    } catch {
-      case ex: Exception => {
-        ex.printStackTrace()
-      }
-    } finally {
-      // 5. 关闭表
-      table.close()
-    }
-
-  }
-
-
-  /**
-    * 获取多列数据的值
-    *
-    * @param tableNameStr     表名
-    * @param rowkey           rowkey
-    * @param columnFamilyName 列族名
-    * @param columnNameList   多个列名
-    * @return 多个列名和多个列值的Map集合
-    */
-  def getMapData(tableNameStr: String, rowkey: String, columnFamilyName: String, columnNameList: List[String]): Map[String, String] = {
-
-    // 1. 获取Table
-    val table = getTable(tableNameStr, columnFamilyName)
-
-    try{
-    // 2. 构建Get
-    val get = new Get(rowkey.getBytes)
-
-    // 3. 执行查询
-    val result: Result = table.get(get)
-
-    // 4. 遍历列名集合,取出列值,构建成Map返回
-    columnNameList.map {
-      col =>
-        val bytes: Array[Byte] = result.getValue(columnFamilyName.getBytes(), col.getBytes)
-
-        if (bytes != null && bytes.size > 0) {
-          col -> Bytes.toString(bytes)
-        }else{
-          ""->""
-        }
-    }.filter(_._1!="").toMap
-
     }catch{
-      case ex:Exception=>{
+      case ex:Exception =>{
+        ex.printStackTrace()
+      }
+    }finally{
+      table.close()
+    }
+  }
+
+  /**
+    * 根据rowkey,列名查询数据
+    * @param tableName 表名
+    * @param rowkey rowkey
+    * @param columnFamily 列蔟名
+    * @param column 列名
+    * @return 数据
+    */
+  def getData(tableNameStr:String,rowKey:String,columnFamilyName:String,columnName:String):String={
+    //获取表
+    val table = getTable(tableNameStr,columnFamilyName)
+
+    try {
+      val get = new Get(rowKey.getBytes)
+      val result = table.get(get)
+      if(result != null && result.containsColumn(columnFamilyName.getBytes(),columnName.getBytes)){
+        val bytes: Array[Byte] = result.getValue(columnFamilyName.getBytes,columnName.getBytes)
+        Bytes.toString(bytes)
+      }else{
+        ""
+      }
+    }catch{
+      case e: Exception => {
+        e.printStackTrace()
+        ""
+      }
+
+    }finally {
+      table.close()
+    }
+  }
+
+  /**
+    * 使用Map封装数据，插入/更新一批数据
+    * @param tableName 表名
+    * @param rowKey rowkey
+    * @param columnFamily 列蔟
+    * @param mapData key:列名，value：列值
+    */
+  def putMapData(tableNameStr:String,rowKey:String,columnFamilyName:String,map: Map[String,Any]): Unit ={
+    //获取表
+    val table = getTable(tableNameStr,columnFamilyName)
+    try {
+      val put = new Put(rowKey.getBytes)
+      for((k,v) <- map){
+        put.addColumn(columnFamilyName.getBytes(),Bytes.toBytes(k),Bytes.toBytes(v.toString))
+
+      }
+      table.put(put)
+    }catch {
+      case ex:Exception => ex.printStackTrace()
+    }finally{
+      table.close()
+    }
+  }
+
+  def getMapData(tableNameStr:String,rowKey:String,columnFamilyName:String,columnNameList:List[String]): Map[String,String] ={
+    val table = getTable(tableNameStr,columnFamilyName)
+    try {
+      val get = new Get(rowKey.getBytes())
+      val result = table.get(get)
+      columnNameList.map{
+        col =>
+          val bytes = result.getValue(columnFamilyName.getBytes,col.getBytes)
+          if(bytes != null && bytes.size > 0){
+            col -> Bytes.toString(bytes)
+          }else{
+            "" -> ""
+          }
+      }.filter(_._1 != "").toMap
+    }catch{
+      case ex:Exception => {
         ex.printStackTrace()
         Map[String,String]()
       }
-    }finally {
-      // 5. 关闭Table
+    }finally{
       table.close()
     }
+
   }
+
 
   /**
-    * 删除数据
-    * @param tableNameStr
-    * @param rowkey
-    * @param columnFamilyName
+    * 根据rowkey删除一条数据
+    *
+    * @param tableNameStr 表名
+    * @param rowkey rowkey
     */
-  def deleteData(tableNameStr:String,rowkey:String,columnFamilyName:String)={
+  def deleteData(tableNameStr:String, rowkey:String, columnFamilyName:String) = {
+    val tableName: TableName = TableName.valueOf(tableNameStr)
 
-    // 1. 获取Table
-    val table:Table = getTable(tableNameStr,columnFamilyName)
-
-    try{
-      // 2. 构建Delete对象
-      val delete:Delete = new Delete(rowkey.getBytes)
-
-      // 3. 执行删除
+   val table = getTable(tableNameStr,columnFamilyName)
+    try {
+      val delete = new Delete(Bytes.toBytes(rowkey))
       table.delete(delete)
-    }catch {
-      case ex:Exception=>
-        ex.printStackTrace()
-    }finally {
-      // 4. 关闭table
+    }
+    catch {
+      case e:Exception => e.printStackTrace()
+    }
+    finally {
       table.close()
     }
   }
-
 
 
   def main(args: Array[String]): Unit = {
+//    println(getTable("test", "info"))
+    // 测试：插入一条数据
+//    putData("test" , "123" , "info" , "tt" , "this is a test")
 
-        println(getTable("test", "info"))
+    // 测试查询一条数据
+//     val data1 = getData("test", "123" , "info" , "tt")
+//     println(data1)
 
-        putData("test","1","info","t1","hello world")
-
-//    println(getData("test", "1", "info", "t1"))
-//
-//
-//    val map = Map(
-//      "t2" -> "scala",
-//      "t3" -> "hive",
-//      "t4" -> "flink"
-//    )
-//
-//    putMapData("test", "1", "info", map)
-//    deleteData("test","1","info")
-
-    println(getMapData("test","1","info",List("t1","t2")))
-
-    val stringToString: Map[String, String] = getMapData("channel_freshness","8:2019052118","info",List("newCount","oldCount"))
-
-    println(stringToString)
-
+    // 测试：插入一批数据
+//    var map = Map("t1" -> "123", "t2" -> "234")
+//     putMapData("test", "123", "info", map)
+    println(getMapData("test", "123", "info", List("t1", "t2")))
   }
-
 }
 
 

@@ -5,7 +5,8 @@ import java.lang
 import java.util.Properties
 
 import com.alibaba.fastjson.JSON
-import com.itheima.realprocess.bean.{ClickLog, Message}
+import com.itheima.realprocess.bean.{ClickLog, ClickLogWide, Message}
+import com.itheima.realprocess.task.{ChannelRealHotTask, PreProcessTask}
 import com.itheima.realprocess.util.GlobalConfigUtil
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.{CheckpointingMode, TimeCharacteristic}
@@ -82,24 +83,28 @@ object App {
       Message(ClickLog(message), count, timeStamp)
     }
 
-    tuple.assignTimestampsAndWatermarks(new AssignerWithPeriodicWatermarks[Message] {
+    val watermarkDataStream = tuple.assignTimestampsAndWatermarks(new AssignerWithPeriodicWatermarks[Message] {
 
       //记录最大事件时间
       var currentTimeStamp = 0l
       //设置最大延迟时间
       val maxDelayTime = 2000l
+
       //设置水印时间为最大事件时间减2秒
       override def getCurrentWatermark: Watermark = {
         new Watermark(currentTimeStamp - maxDelayTime)
       }
+
       //比较两个时间选择最大的一个，如 60 跟 58 比较选择 60的事件时间
       override def extractTimestamp(t: Message, l: Long): Long = {
-        currentTimeStamp = Math.max(t.timeStamp,l)
+        currentTimeStamp = Math.max(t.timeStamp, l)
         currentTimeStamp
       }
     })
-    tuple.print()
+    val clickLogWideDataStream: DataStream[ClickLogWide] = PreProcessTask.process(watermarkDataStream)
 
+//    clickLogWideDataStream.print()
+      ChannelRealHotTask.process(clickLogWideDataStream)
 //    dataStream.print()
 
 
