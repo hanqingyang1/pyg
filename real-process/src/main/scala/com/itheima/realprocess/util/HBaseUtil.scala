@@ -131,29 +131,48 @@ object HBaseUtil {
     }
   }
 
-  def getMapData(tableNameStr:String,rowKey:String,columnFamilyName:String,columnNameList:List[String]): Map[String,String] ={
-    val table = getTable(tableNameStr,columnFamilyName)
-    try {
-      val get = new Get(rowKey.getBytes())
-      val result = table.get(get)
-      columnNameList.map{
+  /**
+    * 获取多列数据的值
+    *
+    * @param tableNameStr     表名
+    * @param rowkey           rowkey
+    * @param columnFamilyName 列族名
+    * @param columnNameList   多个列名
+    * @return 多个列名和多个列值的Map集合
+    */
+  def getMapData(tableNameStr: String, rowkey: String, columnFamilyName: String, columnNameList: List[String]): Map[String, String] = {
+
+    // 1. 获取Table
+    val table = getTable(tableNameStr, columnFamilyName)
+
+    try{
+      // 2. 构建Get
+      val get = new Get(rowkey.getBytes)
+
+      // 3. 执行查询
+      val result: Result = table.get(get)
+
+      // 4. 遍历列名集合,取出列值,构建成Map返回
+      columnNameList.map {
         col =>
-          val bytes = result.getValue(columnFamilyName.getBytes,col.getBytes)
-          if(bytes != null && bytes.size > 0){
+          val bytes: Array[Byte] = result.getValue(columnFamilyName.getBytes(), col.getBytes)
+
+          if (bytes != null && bytes.size > 0) {
             col -> Bytes.toString(bytes)
           }else{
-            "" -> ""
+            ""->""
           }
-      }.filter(_._1 != "").toMap
+      }.filter(_._1!="").toMap
+
     }catch{
-      case ex:Exception => {
+      case ex:Exception=>{
         ex.printStackTrace()
         Map[String,String]()
       }
-    }finally{
+    }finally {
+      // 5. 关闭Table
       table.close()
     }
-
   }
 
 

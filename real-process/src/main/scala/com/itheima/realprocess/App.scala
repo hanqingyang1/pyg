@@ -6,7 +6,7 @@ import java.util.Properties
 
 import com.alibaba.fastjson.JSON
 import com.itheima.realprocess.bean.{ClickLog, ClickLogWide, Message}
-import com.itheima.realprocess.task.{ChannelRealHotTask, PreProcessTask}
+import com.itheima.realprocess.task._
 import com.itheima.realprocess.util.GlobalConfigUtil
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.{CheckpointingMode, TimeCharacteristic}
@@ -104,7 +104,11 @@ object App {
     val clickLogWideDataStream: DataStream[ClickLogWide] = PreProcessTask.process(watermarkDataStream)
 
 //    clickLogWideDataStream.print()
-      ChannelRealHotTask.process(clickLogWideDataStream)
+//      ChannelRealHotTask.process(clickLogWideDataStream)
+//      ChannelPvUvTask.process(clickLogWideDataStream)
+//    ChannelFreshnessTask.process(clickLogWideDataStream)
+//    ChannelAreaTask.process(clickLogWideDataStream)
+      ChannelNetWorkTask.process(clickLogWideDataStream)
 //    dataStream.print()
 
 
